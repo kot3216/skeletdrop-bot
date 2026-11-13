@@ -1,17 +1,8 @@
-const TOKEN = "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
-const WEB_APP_URL = "https://kot3216.github.io/skeletdrop/";
-const ADMIN_ID = 6006668545; // сюда свой Telegram ID (узнай у @userinfobot), 0 = выключено
-
-/* ══════════════════════════════════════════════════════════
-   SkeletDrop — Telegram Bot + API
-   Render: Start Command → node bot.js
-   Env: BOT_TOKEN, ADMIN_ID, WEB_APP_URL (или правь константы)
-   ══════════════════════════════════════════════════════════ */
 "use strict";
 
 const TOKEN       = process.env.BOT_TOKEN   || "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
 const WEB_APP_URL = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop/";
-const ADMIN_ID    = Number(process.env.ADMIN_ID || 6006668545);
+const ADMIN_ID    = Number(process.env.ADMIN_ID || 6006668545;
 
 const { Bot, InlineKeyboard } = require("grammy");
 const fs     = require("fs");
@@ -21,45 +12,32 @@ const crypto = require("crypto");
 
 const bot = new Bot(TOKEN);
 
-/* ── Пакеты пополнения: 1 ⭐ = 2 ₽ ── */
+/* только старые пакеты: 1 ⭐ = 2 ₽ */
 const PACKAGES = {
-  dep2:   { stars: 1,   rub: 2   },
-  dep10:  { stars: 5,   rub: 10  },
-  dep20:  { stars: 10,  rub: 20  },
   dep50:  { stars: 25,  rub: 50  },
   dep100: { stars: 50,  rub: 100 },
   dep250: { stars: 125, rub: 250 },
   dep500: { stars: 250, rub: 500 }
 };
 
-/* ── Хранилище ── */
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, "db.json");
 let cache = null;
 
 function db() {
   if (cache) return cache;
-  try {
-    cache = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-  } catch {
-    cache = { users: {}, codes: {}, payments: [] };
-  }
+  try { cache = JSON.parse(fs.readFileSync(DB_FILE, "utf8")); }
+  catch { cache = { users: {}, codes: {}, payments: [] }; }
   if (!cache.users)    cache.users = {};
   if (!cache.codes)    cache.codes = {};
   if (!cache.payments) cache.payments = [];
   return cache;
 }
 function flush() {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db()));
-  } catch (e) {
-    console.error("DB write:", e.message);
-  }
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(db())); }
+  catch (e) { console.error("DB write:", e.message); }
 }
 function blankUser() {
-  return {
-    balance: 0, collection: [], lastFree: 0, subscribed: false,
-    name: "Игрок", avatar: "💀", updatedAt: 0, deposited: 0
-  };
+  return { balance:0, collection:[], lastFree:0, subscribed:false, name:"Игрок", avatar:"💀", updatedAt:0, deposited:0 };
 }
 function getUser(uid) {
   const d = db();
@@ -74,13 +52,9 @@ function patchUser(uid, patch) {
 }
 function addBalance(uid, amount) {
   const u = getUser(uid);
-  return patchUser(uid, {
-    balance: Math.round((u.balance || 0) + amount),
-    updatedAt: Date.now()
-  });
+  return patchUser(uid, { balance: Math.round((u.balance || 0) + amount), updatedAt: Date.now() });
 }
 
-/* ── Проверка initData из Mini App ── */
 function verifyInitData(initData) {
   try {
     const p = new URLSearchParams(initData);
@@ -94,17 +68,12 @@ function verifyInitData(initData) {
     const authDate = Number(p.get("auth_date") || 0) * 1000;
     if (authDate && Date.now() - authDate > 86400000 * 3) return null;
     return Object.fromEntries(p);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/* ── Клавиатуры ── */
 function shopKeyboard() {
   const kb = new InlineKeyboard().webApp("🎮 Играть", WEB_APP_URL).row();
-  kb.text("⭐ 1 → 2 ₽", "pay:dep2").text("⭐ 5 → 10 ₽", "pay:dep10").row();
-  kb.text("⭐ 10 → 20 ₽", "pay:dep20").text("⭐ 25 → 50 ₽", "pay:dep50").row();
-  kb.text("⭐ 50 → 100 ₽", "pay:dep100").row();
+  kb.text("⭐ 25 → 50 ₽", "pay:dep50").text("⭐ 50 → 100 ₽", "pay:dep100").row();
   kb.text("⭐ 125 → 250 ₽", "pay:dep250").row();
   kb.text("⭐ 250 → 500 ₽", "pay:dep500").row();
   kb.text("💰 Мой баланс", "me").text("🎟 Промокод", "promo").row();
@@ -112,7 +81,6 @@ function shopKeyboard() {
 }
 const playKeyboard = () => new InlineKeyboard().webApp("🎮 Играть", WEB_APP_URL);
 
-/* ── Команды ── */
 bot.command("start", async ctx => {
   await ctx.reply(
     "💀 <b>SkeletDrop</b>\n\n" +
@@ -136,10 +104,7 @@ bot.command("balance", async ctx => {
 
 bot.command("promo", async ctx => {
   await ctx.reply(
-    "🎟 <b>Активные промокоды</b>\n\n" +
-    "<code>STAR DROP</code> — 100 ₽\n\n" +
-    "Вводи в игре: <b>Пополнить → Промокод</b>.\n" +
-    "Регистр и пробелы не важны.",
+    "🎟 <b>Активные промокоды</b>\n\n<code>STAR DROP</code> — 100 ₽\n\nВводи в игре: <b>Пополнить → Промокод</b>.\nРегистр и пробелы не важны.",
     { parse_mode: "HTML", reply_markup: playKeyboard() }
   );
 });
@@ -154,7 +119,6 @@ bot.callbackQuery("promo", async ctx => {
     { parse_mode: "HTML", reply_markup: playKeyboard() });
 });
 
-/* ── Оплата ── */
 bot.callbackQuery(/^pay:(\w+)$/, async ctx => {
   const key = ctx.match[1];
   const pkg = PACKAGES[key];
@@ -176,11 +140,8 @@ bot.callbackQuery(/^pay:(\w+)$/, async ctx => {
 });
 
 bot.on("pre_checkout_query", async ctx => {
-  try {
-    await ctx.answerPreCheckoutQuery(true);
-  } catch (e) {
-    console.error("pre_checkout:", e.message);
-  }
+  try { await ctx.answerPreCheckoutQuery(true); }
+  catch (e) { console.error("pre_checkout:", e.message); }
 });
 
 bot.on("message:successful_payment", async ctx => {
@@ -189,13 +150,11 @@ bot.on("message:successful_payment", async ctx => {
     const data = JSON.parse(sp.invoice_payload);
     const pkg = PACKAGES[data.pkg];
     if (!pkg) return;
-
     const d = db();
     const charge = sp.telegram_payment_charge_id;
     if (d.payments.includes(charge)) return;
     d.payments.push(charge);
     if (d.payments.length > 5000) d.payments = d.payments.slice(-5000);
-
     const u = getUser(String(data.uid));
     patchUser(data.uid, {
       balance: Math.round((u.balance || 0) + pkg.rub),
@@ -203,17 +162,13 @@ bot.on("message:successful_payment", async ctx => {
       updatedAt: Date.now()
     });
     flush();
-
     await ctx.reply(
       `✅ <b>Оплата получена!</b>\n\n⭐ ${pkg.stars} → +${pkg.rub} ₽\n💰 Баланс: <b>${u.balance + pkg.rub} ₽</b>\n\nОткрой игру — баланс уже обновлён 🎮`,
       { parse_mode: "HTML", reply_markup: playKeyboard() }
     );
-  } catch (e) {
-    console.error("successful_payment:", e.message);
-  }
+  } catch (e) { console.error("successful_payment:", e.message); }
 });
 
-/* ── Админ ── */
 bot.command("code", async ctx => {
   if (!ADMIN_ID || ctx.from.id !== ADMIN_ID) return;
   const amount = parseInt(ctx.match, 10) || 0;
@@ -237,14 +192,11 @@ bot.command("stats", async ctx => {
   const d = db();
   const users = Object.values(d.users);
   const total = users.reduce((a, u) => a + (u.deposited || 0), 0);
-  await ctx.reply(
-    `📊 Пользователей: ${users.length}\n⭐ Пополнено: ${total} ₽\n🎟 Активных кодов: ${Object.keys(d.codes).length}`
-  );
+  await ctx.reply(`📊 Пользователей: ${users.length}\n⭐ Пополнено: ${total} ₽\n🎟 Активных кодов: ${Object.keys(d.codes).length}`);
 });
 
 bot.catch(err => console.error("Bot error:", err.error || err.message));
 
-/* ── HTTP API ── */
 function readBody(req) {
   return new Promise(resolve => {
     let raw = "";
@@ -259,16 +211,12 @@ const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-
   if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
   if (req.method === "GET") return res.end(JSON.stringify({ ok: true, service: "skeletdrop", users: Object.keys(db().users).length }));
-
   const send = obj => res.end(JSON.stringify(obj));
-
   try {
     const body = await readBody(req);
     const url = (req.url || "").split("?")[0];
-
     if (url === "/api/check") {
       const code = String(body.code || "").toUpperCase().replace(/[\s\-_]+/g, "");
       const d = db();
@@ -281,13 +229,10 @@ const server = http.createServer(async (req, res) => {
       }
       return send({ ok: false });
     }
-
     const verified = verifyInitData(body.initData || "");
     if (!verified || !verified.user) return send({ ok: false, error: "auth" });
     const uid = String(JSON.parse(verified.user).id);
-
     if (url === "/api/load") return send({ ok: true, user: getUser(uid) });
-
     if (url === "/api/save") {
       const s = body.state || {};
       const current = getUser(uid);
@@ -304,7 +249,6 @@ const server = http.createServer(async (req, res) => {
       });
       return send({ ok: true, user: u });
     }
-
     if (url === "/api/invoice") {
       const pkg = PACKAGES[body.pkg];
       if (!pkg) return send({ ok: false, error: "pkg" });
@@ -317,7 +261,6 @@ const server = http.createServer(async (req, res) => {
       });
       return send({ ok: true, link });
     }
-
     return send({ ok: false, error: "route" });
   } catch (e) {
     console.error("API", req.url, e.message);
@@ -327,13 +270,7 @@ const server = http.createServer(async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => console.log("✅ HTTP API на порту", PORT));
-
-bot.start({
-  onStart: info => console.log("✅ Бот запущен:", info.username)
-}).catch(e => {
-  console.error("❌ Бот не стартовал:", e.message);
-  process.exit(1);
-});
-
+bot.start({ onStart: info => console.log("✅ Бот запущен:", info.username) })
+   .catch(e => { console.error("❌ Бот не стартовал:", e.message); process.exit(1); });
 process.on("SIGTERM", () => { flush(); server.close(); process.exit(0); });
 process.on("SIGINT",  () => { flush(); server.close(); process.exit(0); });
