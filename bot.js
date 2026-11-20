@@ -1,7 +1,7 @@
 "use strict";
 const TOKEN = process.env.BOT_TOKEN || "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
-const WEB = process.env.WEB_APP_URL || "";
-const ADMIN = Number(process.env.ADMIN_ID || 0);
+const WEB = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop";
+const ADMIN = Number(process.env.ADMIN_ID || 6006668545;
 const CHANNEL = process.env.CHANNEL_ID || "@SkelwtDrop";
 const DAY = 864e5;
 
