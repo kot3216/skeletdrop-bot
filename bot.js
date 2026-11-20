@@ -1,154 +1,150 @@
 "use strict";
-const TOKEN       = process.env.BOT_TOKEN   || "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
-const WEB_APP_URL = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop/";
-const ADMIN_ID    = Number(process.env.ADMIN_ID || 6006668545;
-const CHANNEL     = process.env.CHANNEL_ID  || "@SkelwtDrop";
-"use strict";
+const TOKEN = process.env.BOT_TOKEN || "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
+const WEB = process.env.WEB_APP_URL || "";
+const ADMIN = Number(process.env.ADMIN_ID || 0);
+const CHANNEL = process.env.CHANNEL_ID || "@SkelwtDrop";
 const DAY = 864e5;
 
 const { Bot, InlineKeyboard } = require("grammy");
 const fs = require("fs"), path = require("path"), http = require("http"), crypto = require("crypto");
-if (!TOKEN) console.error("❌ BOT_TOKEN не задан в Environment!");
-const bot = new Bot(TOKEN || "0:AAA");
 
-const PACKAGES = { s1:{stars:1}, s10:{stars:10}, s25:{stars:25}, s50:{stars:50}, s250:{stars:250},
-  dep50:{stars:25}, dep100:{stars:50}, dep250:{stars:125}, dep500:{stars:250} };
+/* только 25 / 50 / 125 / 250 */
+const PACKS = { dep50:{stars:25}, dep100:{stars:50}, dep250:{stars:125}, dep500:{stars:250} };
 
-function resolvePkg(b){
-  if (b && b.pkg && PACKAGES[b.pkg]) return PACKAGES[b.pkg];
-  const n = Math.round(Number(b && b.stars) || 0);
-  if (n >= 1 && n <= 2500) return { stars: n };
-  return null;
-}
-
-const DB_FILE = process.env.DB_PATH || path.join(__dirname, "db.json");
+const FILE = process.env.DB_PATH || path.join(__dirname, "db.json");
 let cache = null;
 function db(){ if(cache) return cache;
-  try{ cache = JSON.parse(fs.readFileSync(DB_FILE,"utf8")); }catch{ cache={users:{},codes:{},payments:[]}; }
-  if(!cache.users)cache.users={}; if(!cache.codes)cache.codes={}; if(!cache.payments)cache.payments=[];
+  try{ cache = JSON.parse(fs.readFileSync(FILE,"utf8")); }catch(e){ cache={users:{},codes:{},paid:[]}; }
+  if(!cache.users)cache.users={}; if(!cache.codes)cache.codes={}; if(!cache.paid)cache.paid=[];
   return cache; }
-function flush(){ try{ fs.writeFileSync(DB_FILE, JSON.stringify(db())); }catch(e){ console.error("DB:",e.message); } }
-function blankUser(){ return {balance:0,collection:[],lastFree:0,subscribed:false,name:"Игрок",avatar:"⭐",updatedAt:0,deposited:0}; }
-function getUser(uid){ const d=db(); if(!d.users[uid]) d.users[uid]=blankUser(); return d.users[uid]; }
-function patchUser(uid,p){ const d=db(); d.users[uid]=Object.assign(blankUser(),d.users[uid]||{},p); flush(); return d.users[uid]; }
+function flush(){ try{ fs.writeFileSync(FILE,JSON.stringify(db())); }catch(e){ console.error("db:",e.message); } }
+function blank(){ return {balance:0,collection:[],lastFree:0,subscribed:false,name:"Игрок",updatedAt:0}; }
+function user(id){ const d=db(); if(!d.users[id]) d.users[id]=blank(); return d.users[id]; }
+function patch(id,p){ const d=db(); d.users[id]=Object.assign(blank(),d.users[id]||{},p); flush(); return d.users[id]; }
 
-function verifyInitData(initData){
+function verify(initData){
   try{
-    const p=new URLSearchParams(initData), hash=p.get("hash"); if(!hash) return null; p.delete("hash");
+    const p=new URLSearchParams(initData), h=p.get("hash"); if(!h) return null; p.delete("hash");
     const data=[...p.entries()].map(([k,v])=>k+"="+v).sort().join("\n");
-    const secret=crypto.createHmac("sha256","WebAppData").update(TOKEN).digest();
-    const calc=crypto.createHmac("sha256",secret).update(data).digest("hex");
-    if(calc!==hash) return null;
+    const sec=crypto.createHmac("sha256","WebAppData").update(TOKEN).digest();
+    if(crypto.createHmac("sha256",sec).update(data).digest("hex")!==h) return null;
     return Object.fromEntries(p);
-  }catch{ return null; }
+  }catch(e){ return null; }
 }
-async function checkSub(uid){
-  try{ const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:Number(uid)});
-    const ok=["member","administrator","creator"].includes(m.status)||(m.status==="restricted"&&m.is_member===true);
-    return {ok,status:m.status}; }catch(e){ return {ok:false,status:"error",error:e.message}; }
-}
-function fmtLeft(ms){ const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);
+function left(ms){ const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);
   return [h,m,s].map(x=>String(x).padStart(2,"0")).join(":"); }
 
-function kb(){ const k=new InlineKeyboard().webApp("🎮 Играть",WEB_APP_URL).row();
-  k.text("⭐ 1","pay:s1").text("⭐ 10","pay:s10").text("⭐ 25","pay:s25").row();
-  k.text("⭐ 50","pay:s50").text("⭐ 250","pay:s250").row();
-  k.text("💰 Баланс","me").text("🎁 Кейс","free").row();
-  k.url("📢 Канал","https://t.me/SkelwtDrop"); return k; }
-const play=()=>new InlineKeyboard().webApp("🎮 Играть",WEB_APP_URL);
+let bot=null;
+if(TOKEN){
+  bot=new Bot(TOKEN);
+  const kb=()=>new InlineKeyboard().webApp("🎮 Играть",WEB).row()
+    .text("⭐ 25","pay:dep50").text("⭐ 50","pay:dep100").row()
+    .text("⭐ 125","pay:dep250").text("⭐ 250","pay:dep500").row()
+    .text("💰 Баланс","me").text("🎁 Кейс","free").row()
+    .url("📢 Канал","https://t.me/SkelwtDrop");
+  const play=()=>new InlineKeyboard().webApp("🎮 Играть",WEB);
 
-bot.command("start",c=>c.reply("⭐ <b>SkeletDrop</b>\n\nПополнение: 1 / 10 / 25 / 50 / 250 ⭐\n🎁 Бесплатный кейс — раз в 24 часа.",{parse_mode:"HTML",reply_markup:kb()}));
-bot.command("free",async c=>{ const u=getUser(String(c.from.id)), left=(u.lastFree||0)+DAY-Date.now();
-  await c.reply(left>0?`⏳ Бесплатный кейс будет доступен через <b>${fmtLeft(left)}</b>`:"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()}); });
-bot.callbackQuery("free",async c=>{ await c.answerCallbackQuery(); const u=getUser(String(c.from.id)), left=(u.lastFree||0)+DAY-Date.now();
-  await c.reply(left>0?`⏳ Бесплатный кейс будет доступен через <b>${fmtLeft(left)}</b>`:"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()}); });
-bot.command("balance",async c=>{ const u=getUser(String(c.from.id));
-  await c.reply(`⭐ Баланс: <b>${Math.round(u.balance)}</b>`,{parse_mode:"HTML",reply_markup:play()}); });
-bot.callbackQuery("me",async c=>{ const u=getUser(String(c.from.id)); await c.answerCallbackQuery({text:`⭐ ${Math.round(u.balance)}`,show_alert:true}); });
+  bot.command("start",c=>c.reply("⭐ <b>SkeletDrop</b>\n\nПополнение: 25 / 50 / 125 / 250 ⭐\n🎁 Бесплатный кейс — раз в 24 часа.",{parse_mode:"HTML",reply_markup:kb()}));
+  bot.command("balance",c=>c.reply("⭐ Баланс: <b>"+Math.round(user(String(c.from.id)).balance)+"</b>",{parse_mode:"HTML",reply_markup:play()}));
+  bot.command("free",c=>{const u=user(String(c.from.id)),l=(u.lastFree||0)+DAY-Date.now();
+    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+left(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()})});
+  bot.callbackQuery("free",async c=>{await c.answerCallbackQuery();const u=user(String(c.from.id)),l=(u.lastFree||0)+DAY-Date.now();
+    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+left(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()})});
+  bot.callbackQuery("me",c=>c.answerCallbackQuery({text:"⭐ "+Math.round(user(String(c.from.id)).balance),show_alert:true}));
 
-bot.callbackQuery(/^pay:(\w+)$/,async c=>{ const p=PACKAGES[c.match[1]]; await c.answerCallbackQuery(); if(!p) return;
-  try{ await bot.api.raw.sendInvoice({chat_id:c.chat.id,title:`Пополнение ${p.stars} ⭐`,description:`${p.stars} ⭐ на баланс`,
-    payload:JSON.stringify({uid:String(c.from.id),stars:p.stars}),currency:"XTR",prices:[{label:"Пополнение",amount:p.stars}]}); }
-  catch(e){ console.error("invoice:",e.message); c.reply("Ошибка счёта: "+e.message); } });
+  bot.callbackQuery(/^pay:(\w+)$/,async c=>{
+    const p=PACKS[c.match[1]]; await c.answerCallbackQuery(); if(!p) return;
+    try{ await bot.api.raw.sendInvoice({chat_id:c.chat.id,title:"Пополнение "+p.stars+" ⭐",
+      description:p.stars+" ⭐ на баланс SkeletDrop",
+      payload:JSON.stringify({uid:String(c.from.id),stars:p.stars}),
+      currency:"XTR",prices:[{label:"Пополнение",amount:p.stars}]}); }
+    catch(e){ c.reply("Ошибка счёта: "+e.message); }
+  });
 
-bot.on("pre_checkout_query",async c=>{ try{ await c.answerPreCheckoutQuery(true); }catch(e){} });
-bot.on("message:successful_payment",async c=>{
-  try{
-    const sp=c.message.successful_payment, d=JSON.parse(sp.invoice_payload);
-    const stars=Math.round(Number(d.stars)||0); if(stars<1) return;
-    const dd=db(), charge=sp.telegram_payment_charge_id;
-    if(dd.payments.includes(charge)) return;
-    dd.payments.push(charge); if(dd.payments.length>5000) dd.payments=dd.payments.slice(-5000);
-    const u=getUser(String(d.uid));
-    patchUser(d.uid,{balance:Math.round((u.balance||0)+stars),deposited:Math.round((u.deposited||0)+stars),updatedAt:Date.now()});
-    flush();
-    await c.reply(`✅ +${stars} ⭐\nБаланс: ${Math.round(u.balance+stars)} ⭐`,{reply_markup:play()});
-  }catch(e){ console.error("pay:",e.message); }
-});
-bot.command("code",async c=>{ if(!ADMIN_ID||c.from.id!==ADMIN_ID) return;
-  const a=parseFloat(String(c.match||"").replace(",","."))||0; if(a<=0) return c.reply("/code 50");
-  const code="SD-"+crypto.randomBytes(4).toString("hex").toUpperCase(); db().codes[code]=a; flush(); c.reply(`🎟 ${code} → ${a} ⭐`); });
-bot.catch(e=>console.error("Bot:",e.error||e.message));
+  bot.on("pre_checkout_query",c=>c.answerPreCheckoutQuery(true).catch(()=>{}));
+  bot.on("message:successful_payment",async c=>{
+    try{
+      const sp=c.message.successful_payment,d=JSON.parse(sp.invoice_payload);
+      const stars=Math.round(Number(d.stars)||0); if(stars<1) return;
+      const dd=db(); if(dd.paid.includes(sp.telegram_payment_charge_id)) return;
+      dd.paid.push(sp.telegram_payment_charge_id);
+      const u=user(String(d.uid));
+      patch(d.uid,{balance:Math.round((u.balance||0)+stars),updatedAt:Date.now()});
+      c.reply("✅ +"+stars+" ⭐\nБаланс: "+Math.round(u.balance+stars)+" ⭐",{reply_markup:play()});
+    }catch(e){ console.error("pay:",e.message); }
+  });
 
-function readBody(req){ return new Promise(r=>{ let s=""; req.on("data",c=>{s+=c; if(s.length>1e6)req.destroy();});
-  req.on("end",()=>{try{r(JSON.parse(s||"{}"))}catch{r({})}}); req.on("error",()=>r({})); }); }
+  bot.command("code",c=>{ if(!ADMIN||c.from.id!==ADMIN) return;
+    const a=parseFloat(String(c.match||"").replace(",","."))||0; if(a<=0) return c.reply("/code 50");
+    const code="SD-"+crypto.randomBytes(4).toString("hex").toUpperCase();
+    db().codes[code]=a; flush(); c.reply("🎟 "+code+" → "+a+" ⭐"); });
+
+  bot.catch(e=>console.error("bot:",e.message));
+  bot.start({onStart:i=>console.log("✅ Бот:",i.username)}).catch(e=>console.error("start:",e.message));
+}else{
+  console.error("❌ BOT_TOKEN не задан в Environment");
+}
+
+function body(req){ return new Promise(r=>{ let s=""; req.on("data",c=>{s+=c; if(s.length>1e6)req.destroy()});
+  req.on("end",()=>{try{r(JSON.parse(s||"{}"))}catch(e){r({})}}); req.on("error",()=>r({})); }); }
 
 http.createServer(async(req,res)=>{
   res.setHeader("Access-Control-Allow-Origin","*");
   res.setHeader("Access-Control-Allow-Headers","Content-Type");
   res.setHeader("Access-Control-Allow-Methods","POST, GET, OPTIONS");
   res.setHeader("Content-Type","application/json; charset=utf-8");
-  if(req.method==="OPTIONS"){res.statusCode=204;return res.end();}
-  if(req.method==="GET") return res.end(JSON.stringify({ok:true,service:"skeletdrop",version:25,
-    token:!!TOKEN, packs:["s1","s10","s25","s50","s250"]}));
+  if(req.method==="OPTIONS"){res.statusCode=204;return res.end()}
   const send=o=>res.end(JSON.stringify(o));
+  if(req.method==="GET") return send({ok:true,service:"skeletdrop",token:!!TOKEN,packs:Object.keys(PACKS)});
   try{
-    const b=await readBody(req), url=(req.url||"").split("?")[0];
+    const b=await body(req),url=(req.url||"").split("?")[0];
 
     if(url==="/api/invoice"){
-      if(!TOKEN) return send({ok:false,error:"no_token"});
-      const p=resolvePkg(b);
-      if(!p) return send({ok:false,error:"pkg"});
-      let uid="0";
-      const vv=verifyInitData(b.initData||"");
-      if(vv&&vv.user){ try{ uid=String(JSON.parse(vv.user).id); }catch(e){} }
+      if(!bot) return send({ok:false,error:"no_token"});
+      const p=PACKS[b.pkg]; if(!p) return send({ok:false,error:"pkg"});
+      const v=verify(b.initData||""); let uid="0";
+      if(v&&v.user){ try{ uid=String(JSON.parse(v.user).id) }catch(e){} }
       try{
-        const link=await bot.api.raw.createInvoiceLink({
-          title:`Пополнение ${p.stars} ⭐`, description:`${p.stars} ⭐ на баланс SkeletDrop`,
-          payload:JSON.stringify({uid,stars:p.stars}), currency:"XTR",
+        const link=await bot.api.raw.createInvoiceLink({title:"Пополнение "+p.stars+" ⭐",
+          description:p.stars+" ⭐ на баланс SkeletDrop",
+          payload:JSON.stringify({uid,stars:p.stars}),currency:"XTR",
           prices:[{label:"Пополнение",amount:p.stars}]});
-        return send({ok:true,link,stars:p.stars});
-      }catch(e){ console.error("invoice:",e.message); return send({ok:false,error:"tg",msg:e.message}); }
+        return send({ok:true,link});
+      }catch(e){ return send({ok:false,error:e.message}) }
     }
 
     if(url==="/api/check"){
-      const code=String(b.code||"").toUpperCase().replace(/[\s\-_]+/g,""), d=db();
-      const f=Object.keys(d.codes).find(k=>k.replace(/[\s\-_]+/g,"")===code);
-      if(f){ const v=d.codes[f]; delete d.codes[f]; flush(); return send({ok:true,stars:v}); }
+      const code=String(b.code||"").toUpperCase().replace(/[\s\-_]+/g,""),d=db();
+      const k=Object.keys(d.codes).find(x=>x.replace(/[\s\-_]+/g,"")===code);
+      if(k){ const v=d.codes[k]; delete d.codes[k]; flush(); return send({ok:true,stars:v}) }
       return send({ok:false});
     }
 
-    const v=verifyInitData(b.initData||"");
+    const v=verify(b.initData||"");
     if(!v||!v.user) return send({ok:false,error:"auth"});
     const uid=String(JSON.parse(v.user).id);
 
-    if(url==="/api/verify"){ const s=await checkSub(uid); patchUser(uid,{subscribed:!!s.ok});
-      return send({ok:true,sub:!!s.ok,status:s.status||"",err:s.error||""}); }
-    if(url==="/api/load") return send({ok:true,user:getUser(uid)});
+    if(url==="/api/load") return send({ok:true,user:user(uid)});
+    if(url==="/api/verify"){
+      let ok=false;
+      if(bot){ try{ const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:Number(uid)});
+        ok=["member","administrator","creator"].includes(m.status)||(m.status==="restricted"&&m.is_member); }catch(e){} }
+      patch(uid,{subscribed:ok});
+      return send({ok:true,sub:ok});
+    }
     if(url==="/api/save"){
-      const s=b.state||{}, cur=getUser(uid), ts=Number(s.updatedAt)||0;
+      const s=b.state||{},cur=user(uid),ts=Number(s.updatedAt)||0;
       if(ts<(cur.updatedAt||0)) return send({ok:true,user:cur});
-      return send({ok:true,user:patchUser(uid,{
+      return send({ok:true,user:patch(uid,{
         balance:Math.max(0,Math.round(Number(s.balance)||0)),
         collection:Array.isArray(s.collection)?s.collection.slice(0,600):[],
-        lastFree:Number(s.lastFree)||0, subscribed:!!cur.subscribed,
-        name:String(s.name||"Игрок").slice(0,24), avatar:"⭐", updatedAt:ts||Date.now()})});
+        lastFree:Number(s.lastFree)||0,
+        name:String(s.name||"Игрок").slice(0,24),
+        updatedAt:ts||Date.now()})});
     }
     return send({ok:false,error:"route"});
-  }catch(e){ console.error("API",req.url,e.message); return send({ok:false,error:"server",msg:e.message}); }
-}).listen(process.env.PORT||8080,()=>console.log("✅ API v25"));
+  }catch(e){ return send({ok:false,error:e.message}) }
+}).listen(process.env.PORT||8080,()=>console.log("✅ API"));
 
-if(TOKEN) bot.start({onStart:i=>console.log("✅ Бот:",i.username)}).catch(e=>console.error("Bot start:",e.message));
 process.on("SIGTERM",()=>{flush();process.exit(0)});
 process.on("SIGINT",()=>{flush();process.exit(0)});
-
