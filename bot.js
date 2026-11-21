@@ -1,6 +1,6 @@
 "use strict";
-const TOKEN = process.env.BOT_TOKEN || "9238600427:AAEaRZ1EzFLlP8DuQg4SdyvXeEL2efYi0Oo";
-const WEB = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop";
+const TOKEN = process.env.BOT_TOKEN || "9123481275:AAHuYG3Dfat3h5B0O89wg_rhiYtaq96Rnvg";
+const WEB = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop/";
 const ADMIN = Number(process.env.ADMIN_ID || 6006668545;
 const CHANNEL = process.env.CHANNEL_ID || "@SkelwtDrop";
 const DAY = 864e5;
@@ -8,7 +8,6 @@ const DAY = 864e5;
 const { Bot, InlineKeyboard } = require("grammy");
 const fs = require("fs"), path = require("path"), http = require("http"), crypto = require("crypto");
 
-/* только 25 / 50 / 125 / 250 */
 const PACKS = { dep50:{stars:25}, dep100:{stars:50}, dep250:{stars:125}, dep500:{stars:250} };
 
 const FILE = process.env.DB_PATH || path.join(__dirname, "db.json");
@@ -31,25 +30,34 @@ function verify(initData){
     return Object.fromEntries(p);
   }catch(e){ return null; }
 }
-function left(ms){ const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);
+function fmt(ms){ const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);
   return [h,m,s].map(x=>String(x).padStart(2,"0")).join(":"); }
 
 let bot=null;
 if(TOKEN){
   bot=new Bot(TOKEN);
-  const kb=()=>new InlineKeyboard().webApp("🎮 Играть",WEB).row()
-    .text("⭐ 25","pay:dep50").text("⭐ 50","pay:dep100").row()
-    .text("⭐ 125","pay:dep250").text("⭐ 250","pay:dep500").row()
-    .text("💰 Баланс","me").text("🎁 Кейс","free").row()
-    .url("📢 Канал","https://t.me/SkelwtDrop");
-  const play=()=>new InlineKeyboard().webApp("🎮 Играть",WEB);
+  const hasWeb=/^https:\/\/.+/.test(WEB);
+  const kb=()=>{ const k=new InlineKeyboard();
+    if(hasWeb) k.webApp("🎮 Играть",WEB).row();
+    k.text("⭐ 25","pay:dep50").text("⭐ 50","pay:dep100").row()
+     .text("⭐ 125","pay:dep250").text("⭐ 250","pay:dep500").row()
+     .text("💰 Баланс","me").text("🎁 Кейс","free").row()
+     .url("📢 Канал","https://t.me/SkelwtDrop");
+    return k; };
+  const play=()=>{ const k=new InlineKeyboard(); if(hasWeb) k.webApp("🎮 Играть",WEB); return k; };
 
-  bot.command("start",c=>c.reply("⭐ <b>SkeletDrop</b>\n\nПополнение: 25 / 50 / 125 / 250 ⭐\n🎁 Бесплатный кейс — раз в 24 часа.",{parse_mode:"HTML",reply_markup:kb()}));
+  bot.command("start",c=>c.reply(
+    "⭐ <b>SkeletDrop</b>\n\nПополнение: 25 / 50 / 125 / 250 ⭐\n"+
+    "🎁 Бесплатный кейс — за подписку на @SkelwtDrop, раз в 24 часа.\n"+
+    "⛏️ Фарм — добавь @SkeletDropBot в имя профиля.\n"+
+    "💰 Продажа подарков — по их полной цене.",
+    {parse_mode:"HTML",reply_markup:kb()}));
   bot.command("balance",c=>c.reply("⭐ Баланс: <b>"+Math.round(user(String(c.from.id)).balance)+"</b>",{parse_mode:"HTML",reply_markup:play()}));
   bot.command("free",c=>{const u=user(String(c.from.id)),l=(u.lastFree||0)+DAY-Date.now();
-    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+left(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()})});
-  bot.callbackQuery("free",async c=>{await c.answerCallbackQuery();const u=user(String(c.from.id)),l=(u.lastFree||0)+DAY-Date.now();
-    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+left(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>",{parse_mode:"HTML",reply_markup:play()})});
+    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+fmt(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>\nНужна подписка на @SkelwtDrop",{parse_mode:"HTML",reply_markup:play()})});
+  bot.callbackQuery("free",async c=>{await c.answerCallbackQuery();
+    const u=user(String(c.from.id)),l=(u.lastFree||0)+DAY-Date.now();
+    c.reply(l>0?"⏳ Бесплатный кейс через <b>"+fmt(l)+"</b>":"🎁 <b>Бесплатный кейс доступен!</b>\nНужна подписка на @SkelwtDrop",{parse_mode:"HTML",reply_markup:play()})});
   bot.callbackQuery("me",c=>c.answerCallbackQuery({text:"⭐ "+Math.round(user(String(c.from.id)).balance),show_alert:true}));
 
   bot.callbackQuery(/^pay:(\w+)$/,async c=>{
@@ -68,6 +76,7 @@ if(TOKEN){
       const stars=Math.round(Number(d.stars)||0); if(stars<1) return;
       const dd=db(); if(dd.paid.includes(sp.telegram_payment_charge_id)) return;
       dd.paid.push(sp.telegram_payment_charge_id);
+      if(dd.paid.length>5000) dd.paid=dd.paid.slice(-5000);
       const u=user(String(d.uid));
       patch(d.uid,{balance:Math.round((u.balance||0)+stars),updatedAt:Date.now()});
       c.reply("✅ +"+stars+" ⭐\nБаланс: "+Math.round(u.balance+stars)+" ⭐",{reply_markup:play()});
@@ -79,11 +88,16 @@ if(TOKEN){
     const code="SD-"+crypto.randomBytes(4).toString("hex").toUpperCase();
     db().codes[code]=a; flush(); c.reply("🎟 "+code+" → "+a+" ⭐"); });
 
+  bot.command("diag",async c=>{ if(!ADMIN||c.from.id!==ADMIN) return;
+    let r="Канал: "+CHANNEL+"\n";
+    try{ const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:c.from.id});
+      r+="Твой статус: "+m.status+"\n✅ Бот видит канал"; }
+    catch(e){ r+="❌ ОШИБКА: "+e.message+"\n→ Сделай бота АДМИНОМ канала!"; }
+    c.reply(r); });
+
   bot.catch(e=>console.error("bot:",e.message));
   bot.start({onStart:i=>console.log("✅ Бот:",i.username)}).catch(e=>console.error("start:",e.message));
-}else{
-  console.error("❌ BOT_TOKEN не задан в Environment");
-}
+}else console.error("❌ BOT_TOKEN не задан");
 
 function body(req){ return new Promise(r=>{ let s=""; req.on("data",c=>{s+=c; if(s.length>1e6)req.destroy()});
   req.on("end",()=>{try{r(JSON.parse(s||"{}"))}catch(e){r({})}}); req.on("error",()=>r({})); }); }
@@ -95,7 +109,7 @@ http.createServer(async(req,res)=>{
   res.setHeader("Content-Type","application/json; charset=utf-8");
   if(req.method==="OPTIONS"){res.statusCode=204;return res.end()}
   const send=o=>res.end(JSON.stringify(o));
-  if(req.method==="GET") return send({ok:true,service:"skeletdrop",token:!!TOKEN,packs:Object.keys(PACKS)});
+  if(req.method==="GET") return send({ok:true,service:"skeletdrop",v:31,token:!!TOKEN,channel:CHANNEL,packs:Object.keys(PACKS)});
   try{
     const b=await body(req),url=(req.url||"").split("?")[0];
 
@@ -125,13 +139,17 @@ http.createServer(async(req,res)=>{
     const uid=String(JSON.parse(v.user).id);
 
     if(url==="/api/load") return send({ok:true,user:user(uid)});
+
     if(url==="/api/verify"){
-      let ok=false;
-      if(bot){ try{ const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:Number(uid)});
-        ok=["member","administrator","creator"].includes(m.status)||(m.status==="restricted"&&m.is_member); }catch(e){} }
-      patch(uid,{subscribed:ok});
-      return send({ok:true,sub:ok});
+      if(!bot) return send({ok:false,sub:false,err:"no_bot"});
+      try{
+        const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:Number(uid)});
+        const ok=["member","administrator","creator"].includes(m.status)||(m.status==="restricted"&&m.is_member===true);
+        patch(uid,{subscribed:ok});
+        return send({ok:true,sub:ok,status:m.status});
+      }catch(e){ return send({ok:false,sub:false,err:e.message}) }
     }
+
     if(url==="/api/save"){
       const s=b.state||{},cur=user(uid),ts=Number(s.updatedAt)||0;
       if(ts<(cur.updatedAt||0)) return send({ok:true,user:cur});
@@ -139,12 +157,13 @@ http.createServer(async(req,res)=>{
         balance:Math.max(0,Math.round(Number(s.balance)||0)),
         collection:Array.isArray(s.collection)?s.collection.slice(0,600):[],
         lastFree:Number(s.lastFree)||0,
+        subscribed:!!cur.subscribed,
         name:String(s.name||"Игрок").slice(0,24),
         updatedAt:ts||Date.now()})});
     }
     return send({ok:false,error:"route"});
   }catch(e){ return send({ok:false,error:e.message}) }
-}).listen(process.env.PORT||8080,()=>console.log("✅ API"));
+}).listen(process.env.PORT||8080,()=>console.log("✅ API v31"));
 
 process.on("SIGTERM",()=>{flush();process.exit(0)});
 process.on("SIGINT",()=>{flush();process.exit(0)});
