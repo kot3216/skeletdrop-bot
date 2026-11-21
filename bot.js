@@ -1,6 +1,6 @@
 "use strict";
 
-/* ⚠️ ПОСЛЕ ЗАПУСКА: отзови токен в BotFather и перенеси его в Render → Environment → BOT_TOKEN */
+/* ⚠️ После запуска отзови токен в BotFather и перенеси в Render → Environment → BOT_TOKEN */
 const TOKEN   = process.env.BOT_TOKEN || "9123481275:AAHuYG3Dfat3h5B0O89wg_rhiYtaq96Rnvg";
 const ADMIN   = Number(process.env.ADMIN_ID || 6006668545);
 const WEB     = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop/";
@@ -61,12 +61,10 @@ bot.command("start",c=>c.reply(
   "Пополнение: 25 / 50 / 125 / 250 ⭐\n"+
   "🎁 Бесплатный кейс — за подписку на @SkelwtDrop, раз в 24 часа\n"+
   "⛏️ Фарм — добавь "+BOT_TAG+" в имя профиля\n"+
-  "💰 Продажа подарков — по полной цене\n\n"+
-  (hasWeb?"":"⚠️ Ссылка на игру не настроена (WEB_APP_URL)"),
+  "💰 Продажа подарков — по полной цене",
   {parse_mode:"HTML",reply_markup:kb()}));
 
 bot.command("id",c=>c.reply("Твой ID: <code>"+c.from.id+"</code>",{parse_mode:"HTML"}));
-
 bot.command("balance",c=>c.reply("⭐ Баланс: <b>"+Math.round(user(String(c.from.id)).balance)+"</b>",{parse_mode:"HTML",reply_markup:play()}));
 
 function freeText(u){ const l=(u.lastFree||0)+DAY-Date.now();
@@ -80,20 +78,16 @@ bot.callbackQuery("me",c=>c.answerCallbackQuery({text:"⭐ "+Math.round(user(Str
 bot.callbackQuery(/^pay:(\w+)$/,async c=>{
   const p=PACKS[c.match[1]]; await c.answerCallbackQuery(); if(!p) return;
   try{
-    await bot.api.raw.sendInvoice({
-      chat_id:c.chat.id,
+    await bot.api.raw.sendInvoice({chat_id:c.chat.id,
       title:"Пополнение "+p.stars+" ⭐",
       description:p.stars+" ⭐ на баланс SkeletDrop",
       payload:JSON.stringify({uid:String(c.from.id),stars:p.stars}),
-      currency:"XTR",
-      prices:[{label:"Пополнение",amount:p.stars}]
-    });
+      currency:"XTR",prices:[{label:"Пополнение",amount:p.stars}]});
   }catch(e){ console.error("sendInvoice:",e.message); c.reply("Ошибка счёта: "+e.message); }
 });
 
 bot.on("pre_checkout_query",async c=>{
-  try{ await c.answerPreCheckoutQuery(true); }
-  catch(e){ console.error("pre_checkout:",e.message); }
+  try{ await c.answerPreCheckoutQuery(true); }catch(e){ console.error("pre_checkout:",e.message); }
 });
 
 bot.on("message:successful_payment",async c=>{
@@ -125,15 +119,16 @@ bot.command("code",c=>{
 
 bot.command("diag",async c=>{
   if(c.from.id!==ADMIN) return;
-  let r="🩺 <b>Диагностика</b>\n\n";
-  r+="Бот: "+BOT_TAG+"\nТокен: …"+TOKEN.slice(-6)+"\nИгра: "+WEB+"\nКанал: "+CHANNEL+"\n\n";
-  try{ const me=await bot.api.getMe(); r+="✅ Бот работает: @"+me.username+"\n"; }
-  catch(e){ r+="❌ Токен неверный: "+e.message+"\n"; }
+  const u=user(String(c.from.id));
+  let r="🩺 <b>Диагностика</b>\n\nБот: "+BOT_TAG+"\nТокен: …"+TOKEN.slice(-6)+"\nИгра: "+WEB+"\nКанал: "+CHANNEL+"\n\n";
+  r+="lastFree: "+(u.lastFree||0)+"\n";
+  const l=(u.lastFree||0)+DAY-Date.now();
+  r+="Кейс: "+(l>0?"через "+fmt(l):"доступен")+"\n\n";
+  try{ const me=await bot.api.getMe(); r+="✅ Бот: @"+me.username+"\n"; }
+  catch(e){ r+="❌ Токен: "+e.message+"\n"; }
   try{ const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:c.from.id});
-       r+="✅ Канал виден, твой статус: "+m.status+"\n"; }
-  catch(e){ r+="❌ Канал: "+e.message+"\n→ Сделай бота АДМИНОМ @SkelwtDrop\n"; }
-  const wh=await bot.api.getWebhookInfo().catch(()=>null);
-  if(wh) r+="Webhook: "+(wh.url||"нет (polling ✅)")+"\n";
+       r+="✅ Канал виден, статус: "+m.status+"\n"; }
+  catch(e){ r+="❌ Канал: "+e.message+"\n→ Добавь бота: t.me/SkeletDropBot?startchannel\n"; }
   c.reply(r,{parse_mode:"HTML"});
 });
 
@@ -142,14 +137,10 @@ bot.catch(e=>console.error("bot error:",e.message));
 (async()=>{
   try{
     const me=await bot.api.getMe();
-    console.log("✅ Токен рабочий, бот:",me.username);
+    console.log("✅ Токен рабочий:",me.username);
     await bot.api.deleteWebhook({drop_pending_updates:false});
-    console.log("✅ Webhook очищен, запускаю polling");
     bot.start({onStart:i=>console.log("🚀 Бот запущен:",i.username)});
-  }catch(e){
-    console.error("❌ НЕ ЗАПУСТИЛСЯ:",e.message);
-    console.error("→ Проверь BOT_TOKEN. Если токен отозван — вставь новый.");
-  }
+  }catch(e){ console.error("❌ НЕ ЗАПУСТИЛСЯ:",e.message); }
 })();
 
 function body(req){ return new Promise(r=>{ let s=""; req.on("data",c=>{s+=c; if(s.length>1e6)req.destroy()});
@@ -163,39 +154,28 @@ http.createServer(async(req,res)=>{
   if(req.method==="OPTIONS"){res.statusCode=204;return res.end()}
   const send=o=>res.end(JSON.stringify(o));
 
-  if(req.method==="GET") return send({
-    ok:true, service:"skeletdrop", v:32,
-    bot:BOT_TAG, token:"…"+TOKEN.slice(-6),
-    web:WEB, channel:CHANNEL, packs:Object.keys(PACKS)
-  });
+  if(req.method==="GET") return send({ok:true,service:"skeletdrop",v:33,
+    bot:BOT_TAG,token:"…"+TOKEN.slice(-6),web:WEB,channel:CHANNEL,packs:Object.keys(PACKS)});
 
   try{
     const b=await body(req), url=(req.url||"").split("?")[0];
 
-    /* СЧЁТ НА ОПЛАТУ */
     if(url==="/api/invoice"){
       const stars=resolveStars(b);
       if(!stars) return send({ok:false,error:"pkg"});
-      const v=verify(b.initData||"");
-      const uid=v?uidOf(v):null;
+      const v=verify(b.initData||""), uid=v?uidOf(v):null;
       if(!uid) return send({ok:false,error:"auth"});
       try{
         const link=await bot.api.raw.createInvoiceLink({
           title:"Пополнение "+stars+" ⭐",
           description:stars+" ⭐ на баланс SkeletDrop",
           payload:JSON.stringify({uid:uid,stars:stars}),
-          currency:"XTR",
-          prices:[{label:"Пополнение",amount:stars}]
-        });
-        console.log("🧾 счёт "+stars+" ⭐ для "+uid);
+          currency:"XTR",prices:[{label:"Пополнение",amount:stars}]});
+        console.log("🧾 счёт "+stars+" ⭐ → "+uid);
         return send({ok:true,link:link,stars:stars});
-      }catch(e){
-        console.error("createInvoiceLink:",e.message);
-        return send({ok:false,error:e.message});
-      }
+      }catch(e){ return send({ok:false,error:e.message}) }
     }
 
-    /* ПРОМОКОД */
     if(url==="/api/check"){
       const code=String(b.code||"").toUpperCase().replace(/[\s\-_]+/g,""),d=db();
       const k=Object.keys(d.codes).find(x=>x.replace(/[\s\-_]+/g,"")===code);
@@ -203,37 +183,38 @@ http.createServer(async(req,res)=>{
       return send({ok:false});
     }
 
-    const v=verify(b.initData||"");
-    const uid=v?uidOf(v):null;
+    const v=verify(b.initData||""), uid=v?uidOf(v):null;
     if(!uid) return send({ok:false,error:"auth"});
 
     if(url==="/api/load") return send({ok:true,user:user(uid)});
 
-    /* ПРОВЕРКА ПОДПИСКИ */
     if(url==="/api/verify"){
       try{
         const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:Number(uid)});
         const ok=["member","administrator","creator"].includes(m.status)||(m.status==="restricted"&&m.is_member===true);
-        patch(uid,{subscribed:ok});
+        const cur=user(uid);
+        patch(uid,{subscribed:ok,updatedAt:cur.updatedAt||0});
         return send({ok:true,sub:ok,status:m.status});
       }catch(e){ return send({ok:false,sub:false,err:e.message}) }
     }
 
+    /* СОХРАНЕНИЕ: таймер кейса НИКОГДА не уменьшается */
     if(url==="/api/save"){
-      const s=b.state||{},cur=user(uid),ts=Number(s.updatedAt)||0;
-      if(ts<(cur.updatedAt||0)) return send({ok:true,user:cur});
-      return send({ok:true,user:patch(uid,{
-        balance:Math.max(0,Math.round(Number(s.balance)||0)),
-        collection:Array.isArray(s.collection)?s.collection.slice(0,600):[],
-        lastFree:Number(s.lastFree)||0,
-        subscribed:!!cur.subscribed,
-        name:String(s.name||"Игрок").slice(0,24),
-        updatedAt:ts||Date.now()})});
+      const s=b.state||{}, cur=user(uid);
+      const ts=Number(s.updatedAt)||0;
+      const free=Math.max(Number(cur.lastFree)||0, Number(s.lastFree)||0);
+      const p={ lastFree:free, subscribed:!!cur.subscribed, updatedAt:Math.max(ts,Number(cur.updatedAt)||0,Date.now()) };
+      if(ts>=(Number(cur.updatedAt)||0)){
+        p.balance=Math.max(0,Math.round(Number(s.balance)||0));
+        p.collection=Array.isArray(s.collection)?s.collection.slice(0,600):[];
+        p.name=String(s.name||cur.name||"Игрок").slice(0,24);
+      }
+      return send({ok:true,user:patch(uid,p)});
     }
 
     return send({ok:false,error:"route"});
   }catch(e){ console.error("api:",e.message); return send({ok:false,error:e.message}) }
-}).listen(process.env.PORT||8080,()=>console.log("✅ API v32 на порту "+(process.env.PORT||8080)));
+}).listen(process.env.PORT||8080,()=>console.log("✅ API v33"));
 
 process.on("SIGTERM",()=>{flush();process.exit(0)});
 process.on("SIGINT",()=>{flush();process.exit(0)});
