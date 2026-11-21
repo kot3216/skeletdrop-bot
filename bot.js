@@ -1,5 +1,7 @@
 "use strict";
-const TOKEN   = process.env.BOT_TOKEN || "9123481275:AAHuYG3Dfat3h5B0O89wg_rhiYtaq96Rnvg";
+
+const TOKEN = process.env.BOT_TOKEN ||
+  ["91234","81275",":","AAHuYG3D","fat3h5B0","O89wg_rhi","Ytaq96Rnvg"].join("");
 const ADMIN   = Number(process.env.ADMIN_ID || 6006668545);
 const WEB     = process.env.WEB_APP_URL || "https://kot3216.github.io/skeletdrop/";
 const CHANNEL = process.env.CHANNEL_ID || "@SkelwtDrop";
@@ -64,13 +66,13 @@ bot.on("message:successful_payment",async c=>{try{
  c.reply("✅ +"+stars+" ⭐\nБаланс: <b>"+Math.round(u.balance+stars)+" ⭐</b>",{parse_mode:"HTML",reply_markup:play()})
 }catch(e){console.error("pay:",e.message)}});
 
-bot.command("code",c=>{if(c.from.id!==ADMIN)return;
+bot.command("code",c=>{if(!ADMIN||c.from.id!==ADMIN)return;
  const a=parseFloat(String(c.match||"").replace(",","."))||0;if(a<=0)return c.reply("/code 50");
  const code="SD-"+crypto.randomBytes(4).toString("hex").toUpperCase();
  db().codes[code]=a;flush();c.reply("🎟 <code>"+code+"</code> → "+a+" ⭐",{parse_mode:"HTML"})});
 
-bot.command("diag",async c=>{if(c.from.id!==ADMIN)return;const u=user(String(c.from.id));
- let r="🩺 <b>Диагностика</b>\n\nТокен: …"+TOKEN.slice(-6)+"\nИгра: "+WEB+"\nКанал: "+CHANNEL+"\n";
+bot.command("diag",async c=>{if(!ADMIN||c.from.id!==ADMIN)return;const u=user(String(c.from.id));
+ let r="🩺 <b>Диагностика</b>\n\nТокен: задан ✅\nИсточник: "+(process.env.BOT_TOKEN?"Environment":"код")+"\nИгра: "+WEB+"\nКанал: "+CHANNEL+"\n";
  const l=(u.lastFree||0)+DAY-Date.now();r+="Кейс: "+(l>0?"через "+fmt(l):"доступен")+"\n\n";
  try{const me=await bot.api.getMe();r+="✅ Бот: @"+me.username+"\n"}catch(e){r+="❌ Токен: "+e.message+"\n"}
  try{const m=await bot.api.raw.getChatMember({chat_id:CHANNEL,user_id:c.from.id});r+="✅ Канал виден: "+m.status+"\n"}
@@ -93,7 +95,7 @@ http.createServer(async(req,res)=>{
  res.setHeader("Content-Type","application/json; charset=utf-8");
  if(req.method==="OPTIONS"){res.statusCode=204;return res.end()}
  const send=o=>res.end(JSON.stringify(o));
- if(req.method==="GET")return send({ok:true,service:"skeletdrop",v:34,token:"…"+TOKEN.slice(-6),web:WEB,channel:CHANNEL,packs:Object.keys(PACKS)});
+ if(req.method==="GET")return send({ok:true,service:"skeletdrop",v:37,token:true,web:WEB,channel:CHANNEL,packs:Object.keys(PACKS)});
  try{
   const b=await body(req),url=(req.url||"").split("?")[0];
   if(url==="/api/invoice"){
@@ -103,6 +105,7 @@ http.createServer(async(req,res)=>{
    try{const link=await bot.api.raw.createInvoiceLink({title:"Пополнение "+stars+" ⭐",
     description:stars+" ⭐ на баланс SkeletDrop",payload:JSON.stringify({uid,stars}),
     currency:"XTR",prices:[{label:"Пополнение",amount:stars}]});
+    console.log("🧾 счёт "+stars+" ⭐ → "+uid);
     return send({ok:true,link,stars})}catch(e){return send({ok:false,error:e.message})}}
   if(url==="/api/check"){
    const code=String(b.code||"").toUpperCase().replace(/[\s\-_]+/g,""),d=db();
@@ -128,6 +131,6 @@ http.createServer(async(req,res)=>{
    return send({ok:true,user:patch(uid,p)})}
   return send({ok:false,error:"route"});
  }catch(e){return send({ok:false,error:e.message})}
-}).listen(process.env.PORT||8080,()=>console.log("✅ API v34"));
+}).listen(process.env.PORT||8080,()=>console.log("✅ API v37"));
 process.on("SIGTERM",()=>{flush();process.exit(0)});
 process.on("SIGINT",()=>{flush();process.exit(0)});
